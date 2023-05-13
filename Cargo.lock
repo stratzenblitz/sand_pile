@@ -1842,6 +1842,7 @@ dependencies = [
 name = "sand_pile"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
  "nalgebra",
  "nannou",
 ]

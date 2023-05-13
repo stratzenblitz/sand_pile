@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashSet, VecDeque};
+use std::hash::Hash;
 use nannou::draw::background::new;
 use nannou::prelude::*;
 extern crate nalgebra as na;
@@ -6,47 +7,47 @@ use na::{Vector2};
 use std::f32::consts::{PI};
 use std::env;
 
-fn find_max_piles(sandbox: &HashMap<Vector2<i32>, i32>, pattern_size: usize) -> Vec<Vector2<i32>> {
-
-    let mut maxed_piles: Vec<Vector2<i32>> = Vec::new();
-
-    for (pos, pile) in sandbox {
-        if *pile >= pattern_size as i32 {
-            maxed_piles.push(*pos);
-        }
-    }
-
-    maxed_piles
-}
-
 // [[1,0], [0,1], [-1,0], [0,-1]]
 // [[1,1], [-1,1], [-1,-1], [1,-1]]
 
-fn move_sand(sandbox: &mut HashMap<Vector2<i32>, i32>, maxed_piles: &Vec<Vector2<i32>>, pattern: &Vec<Vector2<i32>>) {
-    for pile_index in maxed_piles {
-        let pile = sandbox.get_mut(&pile_index).unwrap();
-        *pile -= pattern.len() as i32;
+
+fn move_sand_better(sandbox: &mut Vec<Vec<i32>>, maxed_piles: &mut HashSet<Vector2<i32>>, pattern: &Vec<Vector2<i32>>) {    
+    if let Some(current_pile) = maxed_piles.iter().next().cloned() {
+        let value = &mut sandbox[current_pile.x as usize][current_pile.y as usize];
+        *value -= pattern.len() as i32;
+
+        if *value < pattern.len() as i32 {
+            maxed_piles.remove(&current_pile);
+        }
 
         for sand_move in pattern {
-            let new_pos = pile_index + sand_move;
+            let move_x = current_pile.x + sand_move.x;
+            let move_y = current_pile.y + sand_move.y;
 
-            let to_pile = sandbox.entry(new_pos).or_insert(0);
-            *to_pile += 1;
+            let move_location = &mut sandbox[move_x as usize][move_y as usize];
+            *move_location += 1;
+
+            if *move_location >= pattern.len() as i32 {
+                maxed_piles.insert(Vector2::new(move_x, move_y));
+            }
         }
     }
 }
 
+
 struct Model {
     _window: window::Id,
-    sandbox: HashMap<Vector2<i32>, i32>,
+    sandbox: Vec<Vec<i32>>,
     pattern: Vec<Vector2<i32>>,
-    start_points: Vec<Vector2<i32>>,
-    sand_count: i64,
+    canvas_size: usize,
+    maxed_piles: HashSet<Vector2<i32>>
 }
 
 fn model(app: &App) -> Model {
+    let canvas_size = 4000;
+
     let _window = app.new_window().view(view).build().unwrap();
-    let mut sandbox: HashMap<Vector2<i32>, i32> = HashMap::new();
+    let mut sandbox: Vec<Vec<i32>> = vec![vec![0; canvas_size]; canvas_size];
     let mut pattern: Vec<Vector2<i32>> = Vec::new();
     pattern.push(Vector2::new(0, 1));
     pattern.push(Vector2::new(1, 0));
@@ -63,36 +64,23 @@ fn model(app: &App) -> Model {
     // pattern.push(Vector2::new(-1, 1));
     // pattern.push(Vector2::new(-1, -1));
 
-    let mut start_points: Vec<Vector2<i32>> = Vec::new();
-    start_points.push(Vector2::new(0,0));
-    // start_points.push(Vector2::new(0,10));
+    let center = canvas_size/2;
 
-    let sand_count: i64 = 0;
+    let mut maxed_piles: HashSet<Vector2<i32>> = HashSet::new();
 
-    Model {_window, sandbox, pattern, start_points, sand_count}
+    Model {_window, sandbox, pattern, canvas_size, maxed_piles}
 }
 
 fn update(_app: &App, _model: &mut Model, _update: Update) {
+    for i in 0..1000000 {
+        move_sand_better(&mut _model.sandbox, &mut _model.maxed_piles, &_model.pattern);
 
-    for i in 0..10 {
-        for point in _model.start_points.iter() {
-            let start =_model.sandbox.entry(*point).or_insert(1048576);
-            // *start += 1;
-            // _model.sand_count += 1;
-
-        } 
-        
-        // loop {
-            let maxed_sand_piles = find_max_piles(&_model.sandbox, _model.pattern.len());
-            // if maxed_sand_piles.len() == 0 {
-                // break;
-            // }
-
-            move_sand(&mut _model.sandbox, &maxed_sand_piles, &_model.pattern);
-        // }
+        if _model.maxed_piles.len() == 0 {
+            _model.maxed_piles.insert(Vector2::new((_model.canvas_size/2) as i32, (_model.canvas_size/2) as i32));
+            _model.sandbox[_model.canvas_size/2][_model.canvas_size/2] = _model.pattern.len() as i32;
+        }
     }
-
-    // println!("Sand Count: {}", _model.sand_count)
+    println!("{}", _model.maxed_piles.len());
 }
 
 fn view(app: &App, _model: &Model, frame: Frame) {
@@ -100,24 +88,33 @@ fn view(app: &App, _model: &Model, frame: Frame) {
     let scalar = 1.0;
     draw.background().color(BLACK);
 
-    for (point, value) in _model.sandbox.iter() {
-        let color = match value {
-            1 => CORNFLOWERBLUE,
-            2 => PURPLE,
-            3 => CRIMSON,
-            4 => GREEN,
-            5 => YELLOW,
-            6 => ORANGE,
-            7 => DARKSEAGREEN,
-            8 => CHOCOLATE,
-            9 => DARKORCHID,
-            10 => DEEPPINK,
-            11 => CORNFLOWERBLUE,
-            _ => BLACK,
-        };
+    for i in 0.._model.canvas_size {
+        for j in 0.._model.canvas_size {
+            let value =  _model.sandbox[i][j];
+            if value != 0 {
+                let color = match _model.sandbox[i][j] {
+                    1 => CORNFLOWERBLUE,
+                    2 => PURPLE,
+                    3 => CRIMSON,
+                    4 => GREEN,
+                    5 => YELLOW,
+                    6 => ORANGE,
+                    7 => DARKSEAGREEN,
+                    8 => CHOCOLATE,
+                    9 => DARKORCHID,
+                    10 => DEEPPINK,
+                    11 => CORNFLOWERBLUE,
+                    _ => WHITE,
+                };
 
-        draw.rect().w(scalar).h(scalar).x_y(scalar * point.x as f32, scalar * point.y as f32).color(color);
-        // draw.rect().radius(scalar * 0.5).x_y(scalar * point.x as f32, scalar * point.y as f32).color(color);
+                let center = (_model.canvas_size/2) as f32;
+                let x = (i as f32 - center) * scalar;
+                let y = (j as f32 - center) * scalar;
+
+
+                draw.rect().w(scalar).h(scalar).x_y(x, y).color(color);
+            }
+        };
     }
 
     draw.to_frame(app, &frame).unwrap();
