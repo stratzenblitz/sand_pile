@@ -76,7 +76,7 @@ fn update(_app: &App, _model: &mut Model, _update: Update) {
 
     for i in 0..10 {
         for point in _model.start_points.iter() {
-            let start =_model.sandbox.entry(*point).or_insert(262144);
+            let start =_model.sandbox.entry(*point).or_insert(1048576);
             // *start += 1;
             // _model.sand_count += 1;
 
@@ -97,7 +97,7 @@ fn update(_app: &App, _model: &mut Model, _update: Update) {
 
 fn view(app: &App, _model: &Model, frame: Frame) {
     let draw = app.draw();
-    let scalar = 4.0;
+    let scalar = 1.0;
     draw.background().color(BLACK);
 
     for (point, value) in _model.sandbox.iter() {
